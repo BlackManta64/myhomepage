@@ -1,0 +1,114 @@
+@font-face {
+    font-family: "MCFont";
+    src: url("font/MinecraftRegular-Bmg3.otf") format("opentype");
+    font-weight: normal;
+    font-style: normal;
+}
+
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    font-family: "MCFont", sans-serif;
+}
+
+.main_header {
+    background-color: #1a1a1a8f;
+    height: 80px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+
+    padding: 0 20px;
+    z-index: 1000;
+}
+/* ロゴ */
+.logo {
+    color: white;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* メニュー */
+.menu a {
+    color: white;
+    text-decoration: none;
+    margin-left: 20px;
+}
+
+/* ホバーで少し変化 */
+.menu a:hover {
+    text-decoration: underline;
+}
+
+.image_container img {
+    width: 100%;
+    object-fit: cover;    /* 比率を保ってトリミング */
+}
+
+.image_container {
+    position: relative; /* 基準になる */
+}
+
+.image_container img {
+    width: 100%;
+    display: block;
+}
+
+.text {
+    position: absolute;
+    bottom: 10px; /* 下から */
+    left: 10px;   /* 左から */
+
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.text a,
+.text a:visited {
+    color: rgb(110, 202, 255);
+    text-decoration: none;
+}
+
+#title {
+    text-align: center;
+}
+
+#my_image {
+    padding-left: 30%;
+    height: 250px;
+    width: auto;
+    image-rendering: pixelated;
+}
+
+#my_image_text{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+#text_1{
+    padding-left: 31%;
+}
+
+.my_image_text span {
+    white-space: pre-line;
+}
+
+#space{
+    height: 400px;
+}
