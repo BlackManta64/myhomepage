@@ -111,6 +111,8 @@ body {
     height: 400px;
 }
 
-#copyright {
+footer {
+    width: 100%;
     text-align: center;
+    padding: 20px 0;
 }
