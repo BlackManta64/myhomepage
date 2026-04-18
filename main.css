@@ -35,32 +35,30 @@ body {
     padding: 0 20px;
     z-index: 1000;
 }
-/* ロゴ */
+
 .logo {
     color: white;
     font-size: 20px;
     font-weight: bold;
 }
 
-/* メニュー */
 .menu a {
     color: white;
     text-decoration: none;
     margin-left: 20px;
 }
 
-/* ホバーで少し変化 */
 .menu a:hover {
     text-decoration: underline;
 }
 
 .image_container img {
     width: 100%;
-    object-fit: cover;    /* 比率を保ってトリミング */
+    object-fit: cover;
 }
 
 .image_container {
-    position: relative; /* 基準になる */
+    position: relative;
 }
 
 .image_container img {
@@ -70,8 +68,8 @@ body {
 
 .text {
     position: absolute;
-    bottom: 10px; /* 下から */
-    left: 10px;   /* 左から */
+    bottom: 10px;
+    left: 10px;
 
     color: white;
     font-size: 12px;
