@@ -93,7 +93,7 @@ body {
     image-rendering: pixelated;
 }
 
-#my_image_text{
+#about{
     display: flex;
     align-items: center;
     gap: 10px;
