@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Unicode Viewer</title>
+
+<style>
+:root{
+    --bg:#121212;
+    --panel:#1e1e1e;
+    --border:#333;
+    --button:#2b2b2b;
+    --button-hover:#3b3b3b;
+    --text:#f5f5f5;
+    --sub:#9a9a9a;
+    --input:#252525;
+    --highlight:#665500;
+    --highlight-border:#ffd700;
+}
+
+*{
+    box-sizing:border-box;
+}
+
+body{
+    font-family:sans-serif;
+    margin:20px;
+    background:var(--bg);
+    color:var(--text);
+}
+
+h2{
+    color:var(--text);
+}
+
+#buttons{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+    max-height:300px;
+    overflow:auto;
+    border:1px solid var(--border);
+    padding:10px;
+    background:var(--panel);
+}
+
+button{
+    padding:5px 8px;
+    cursor:pointer;
+    font-size:12px;
+    background:var(--button);
+    color:var(--text);
+    border:1px solid #555;
+    border-radius:4px;
+    transition:0.15s;
+}
+
+button:hover:not(:disabled){
+    background:var(--button-hover);
+}
+
+button:disabled{
+    opacity:0.4;
+    cursor:default;
+}
+
+button.all-generate{
+    background:#3a4a2a;
+    border-color:#6a8a4a;
+}
+
+button.all-generate:hover:not(:disabled){
+    background:#4a5a3a;
+}
+
+button.all-generate.active{
+    background:#5a4a1a;
+    border-color:var(--highlight-border);
+}
+
+input{
+    padding:8px;
+    width:300px;
+    background:var(--input);
+    color:var(--text);
+    border:1px solid #555;
+    border-radius:4px;
+}
+
+input::placeholder{
+    color:#888;
+}
+
+#output{
+    margin-top:20px;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(60px,1fr));
+    gap:4px;
+    min-height:120px;
+}
+
+.cell{
+    border:1px solid var(--border);
+    padding:5px;
+    text-align:center;
+    min-height:50px;
+    background:var(--panel);
+    color:var(--text);
+    cursor:pointer;
+    user-select:none;
+    transition:background 0.15s,border-color 0.15s;
+}
+
+.cell:hover{
+    background:#2a2a2a;
+}
+
+.cell.copied{
+    background:#2a4a2a;
+    border-color:#6fcf6f;
+}
+
+.code{
+    font-size:10px;
+    color:var(--sub);
+}
+
+.code:hover{
+    color:var(--highlight-border);
+}
+
+#copyHint{
+    margin-top:12px;
+    font-size:12px;
+    color:var(--sub);
+}
+
+#toast{
+    position:fixed;
+    bottom:24px;
+    left:50%;
+    transform:translateX(-50%) translateY(80px);
+    padding:10px 18px;
+    background:#2a4a2a;
+    border:1px solid #6fcf6f;
+    border-radius:6px;
+    color:var(--text);
+    font-size:13px;
+    opacity:0;
+    pointer-events:none;
+    transition:transform 0.25s,opacity 0.25s;
+    z-index:1000;
+}
+
+#toast.show{
+    transform:translateX(-50%) translateY(0);
+    opacity:1;
+}
+
+#pagination{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:16px;
+    padding:12px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:4px;
+}
+
+#pageInfo{
+    min-width:160px;
+    text-align:center;
+    color:var(--sub);
+    font-size:13px;
+}
+
+#rangeInfo{
+    width:100%;
+    text-align:center;
+    font-size:12px;
+    color:var(--sub);
+}
+
+::-webkit-scrollbar{
+    width:10px;
+    height:10px;
+}
+
+::-webkit-scrollbar-track{
+    background:#1a1a1a;
+}
+
+::-webkit-scrollbar-thumb{
+    background:#555;
+    border-radius:5px;
+}
+
+::-webkit-scrollbar-thumb:hover{
+    background:#777;
+}
+</style>
+
+</head>
+<body>
+
+<h2>Unicode Viewer</h2>
+
+<div style="margin:15px 0;">
+    <input
+        type="text"
+        id="search"
+        placeholder="e.g. U+3042 / 3042 / あ / 😀"
+    >
+    <button onclick="searchUnicode()">Search</button>
+</div>
+
+<div id="buttons"></div>
+
+<div id="output"></div>
+
+<p id="copyHint">Click a cell to copy the character. Click the code label to copy U+ notation.</p>
+
+<div id="toast"></div>
+
+<div id="pagination">
+    <button id="firstPage" onclick="goToPage(0)">First</button>
+    <button id="prevPage" onclick="goToPage(viewState.page-1)">Previous</button>
+    <span id="pageInfo">Page 1 of 1</span>
+    <button id="nextPage" onclick="goToPage(viewState.page+1)">Next</button>
+    <button id="lastPage" onclick="goToPage(getTotalPages()-1)">Last</button>
+    <div id="rangeInfo"></div>
+</div>
+
+<script>
+
+const PAGE_SIZE=256;
+const MAX_CODE=0x10FFFF;
+
+const buttons=document.getElementById("buttons");
+const output=document.getElementById("output");
+const pageInfo=document.getElementById("pageInfo");
+const rangeInfo=document.getElementById("rangeInfo");
+const firstPageBtn=document.getElementById("firstPage");
+const prevPageBtn=document.getElementById("prevPage");
+const nextPageBtn=document.getElementById("nextPage");
+const lastPageBtn=document.getElementById("lastPage");
+
+const viewState={
+    rangeStart:0,
+    rangeEnd:MAX_CODE,
+    page:0,
+    highlightCode:null,
+    allMode:false
+};
+
+const allBtn=document.createElement("button");
+allBtn.className="all-generate";
+allBtn.textContent="All Characters";
+allBtn.onclick=()=>showAll();
+buttons.appendChild(allBtn);
+
+for(let start=0;start<=MAX_CODE;start+=0x100){
+
+    const end=Math.min(start+0xFF,MAX_CODE);
+    const button=document.createElement("button");
+
+    button.textContent=
+        "U+"+
+        start.toString(16).toUpperCase().padStart(4,"0")+
+        "-U+"+
+        end.toString(16).toUpperCase().padStart(4,"0");
+
+    button.onclick=()=>showRange(start,end);
+
+    buttons.appendChild(button);
+
+}
+
+function isValidCodePoint(i){
+    return !(i>=0xD800 && i<=0xDFFF);
+}
+
+function countValidInRange(start,end){
+
+    let count=0;
+
+    for(let i=start;i<=end;i++){
+        if(isValidCodePoint(i)){
+            count++;
+        }
+    }
+
+    return count;
+
+}
+
+function getTotalPages(){
+    const total=countValidInRange(viewState.rangeStart,viewState.rangeEnd);
+    return Math.max(1,Math.ceil(total/PAGE_SIZE));
+}
+
+function createCell(i){
+
+    const div=document.createElement("div");
+    div.className="cell";
+    div.title="Click to copy character";
+
+    let ch="";
+
+    try{
+        ch=String.fromCodePoint(i);
+    }catch(e){
+        ch="";
+    }
+
+    const codeText=formatCode(i);
+
+    const charDiv=document.createElement("div");
+    charDiv.textContent=ch;
+
+    const codeDiv=document.createElement("div");
+    codeDiv.className="code";
+    codeDiv.textContent=codeText;
+    codeDiv.title="Click to copy code point";
+
+    div.appendChild(charDiv);
+    div.appendChild(codeDiv);
+
+    div.addEventListener("click",()=>{
+        copyText(ch,"Copied: "+displayCopyValue(ch));
+        flashCopied(div);
+    });
+
+    codeDiv.addEventListener("click",(event)=>{
+        event.stopPropagation();
+        copyText(codeText,"Copied: "+codeText);
+        flashCopied(div);
+    });
+
+    if(viewState.highlightCode===i){
+        div.style.background="var(--highlight)";
+        div.style.border="2px solid var(--highlight-border)";
+    }
+
+    return div;
+
+}
+
+let toastTimer=null;
+
+function displayCopyValue(text){
+    if(text===""){
+        return "(empty)";
+    }
+    if(text===" "){
+        return "(space)";
+    }
+    if(text==="\n"){
+        return "(newline)";
+    }
+    if(text==="\t"){
+        return "(tab)";
+    }
+    return text;
+}
+
+async function copyText(text,message){
+
+    try{
+        await navigator.clipboard.writeText(text);
+    }catch(e){
+        const area=document.createElement("textarea");
+        area.value=text;
+        area.style.position="fixed";
+        area.style.left="-9999px";
+        document.body.appendChild(area);
+        area.select();
+        document.execCommand("copy");
+        document.body.removeChild(area);
+    }
+
+    showToast(message);
+
+}
+
+function showToast(message){
+
+    const toast=document.getElementById("toast");
+    toast.textContent=message;
+    toast.classList.add("show");
+
+    if(toastTimer){
+        clearTimeout(toastTimer);
+    }
+
+    toastTimer=setTimeout(()=>{
+        toast.classList.remove("show");
+    },1500);
+
+}
+
+function flashCopied(cell){
+
+    cell.classList.add("copied");
+
+    setTimeout(()=>{
+        cell.classList.remove("copied");
+    },600);
+
+}
+
+function renderPage(){
+
+    output.innerHTML="";
+
+    const startOffset=viewState.page*PAGE_SIZE;
+    let validSeen=0;
+    let rendered=0;
+
+    for(
+        let i=viewState.rangeStart;
+        i<=viewState.rangeEnd && rendered<PAGE_SIZE;
+        i++
+    ){
+
+        if(!isValidCodePoint(i)){
+            continue;
+        }
+
+        if(validSeen>=startOffset){
+            output.appendChild(createCell(i));
+            rendered++;
+        }
+
+        validSeen++;
+
+    }
+
+    updatePaginationUI();
+
+    if(viewState.highlightCode!==null){
+
+        const highlighted=output.querySelector(
+            ".cell[style*='background']"
+        );
+
+        if(highlighted){
+            highlighted.scrollIntoView({
+                behavior:"smooth",
+                block:"center"
+            });
+        }
+
+    }
+
+}
+
+function updatePaginationUI(){
+
+    const totalPages=getTotalPages();
+    const page=Math.min(viewState.page,totalPages-1);
+
+    if(page!==viewState.page){
+        viewState.page=page;
+    }
+
+    pageInfo.textContent="Page "+(page+1)+" of "+totalPages;
+
+    const startCode=formatCode(viewState.rangeStart);
+    const endCode=formatCode(viewState.rangeEnd);
+
+    if(viewState.allMode){
+        rangeInfo.textContent="Showing all valid Unicode code points";
+    }else{
+        rangeInfo.textContent="Range: "+startCode+" - "+endCode;
+    }
+
+    firstPageBtn.disabled=page<=0;
+    prevPageBtn.disabled=page<=0;
+    nextPageBtn.disabled=page>=totalPages-1;
+    lastPageBtn.disabled=page>=totalPages-1;
+
+    allBtn.classList.toggle("active",viewState.allMode);
+
+}
+
+function formatCode(code){
+    return "U+"+code.toString(16).toUpperCase().padStart(4,"0");
+}
+
+function goToPage(page){
+
+    const totalPages=getTotalPages();
+    viewState.page=Math.max(0,Math.min(page,totalPages-1));
+    viewState.highlightCode=null;
+    renderPage();
+
+}
+
+function showAll(){
+
+    viewState.allMode=true;
+    viewState.rangeStart=0;
+    viewState.rangeEnd=MAX_CODE;
+    viewState.page=0;
+    viewState.highlightCode=null;
+    renderPage();
+
+}
+
+function showRange(start,end){
+
+    viewState.allMode=false;
+    viewState.rangeStart=start;
+    viewState.rangeEnd=end;
+    viewState.page=0;
+    viewState.highlightCode=null;
+    renderPage();
+
+}
+
+function pageForCode(code){
+
+    let validBefore=0;
+
+    for(let i=viewState.rangeStart;i<code;i++){
+        if(isValidCodePoint(i)){
+            validBefore++;
+        }
+    }
+
+    return Math.floor(validBefore/PAGE_SIZE);
+
+}
+
+function searchUnicode(){
+
+    viewState.highlightCode=null;
+
+    const input=document.getElementById("search").value.trim();
+
+    if(input===""){
+        return;
+    }
+
+    let code=null;
+
+    if(/^U\+/i.test(input)){
+        code=parseInt(input.substring(2),16);
+    }else if(/^[0-9A-Fa-f]+$/.test(input)){
+        code=parseInt(input,16);
+    }else{
+        code=input.codePointAt(0);
+    }
+
+    if(code===undefined || code===null || isNaN(code)){
+        alert("Character not found.");
+        return;
+    }
+
+    if(code<0 || code>MAX_CODE){
+        alert("Code point is outside the Unicode range.");
+        return;
+    }
+
+    if(!isValidCodePoint(code)){
+        alert("Code point is in the surrogate range and cannot be displayed.");
+        return;
+    }
+
+    const start=Math.floor(code/0x100)*0x100;
+    const end=Math.min(start+0xFF,MAX_CODE);
+
+    viewState.allMode=false;
+    viewState.rangeStart=start;
+    viewState.rangeEnd=end;
+    viewState.page=pageForCode(code);
+    viewState.highlightCode=code;
+    renderPage();
+
+}
+
+renderPage();
+
+</script>
+
+</body>
+</html>
